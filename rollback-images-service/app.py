@@ -11,7 +11,7 @@ from flask_cors import CORS  # Import CORS
 app = Flask(__name__)
 
 # Enable CORS for requests from localhost:8080
-CORS(app, origins=["http://54.173.251.44:9090"])
+CORS(app, origins=["http://54.166.118.216:9090"])
 
 # MongoDB connection URLs
 uri_catalog = "mongodb://admin:admin123@35.175.23.86:27017/CatalogServiceDB?authSource=admin"
