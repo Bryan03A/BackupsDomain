@@ -4,101 +4,101 @@ from flask import Flask, jsonify, request
 from pymongo import MongoClient
 from bson.json_util import dumps, loads
 from datetime import datetime
-from flask_cors import CORS  # Importar CORS
+from flask_cors import CORS  # Import CORS
 
-# Crear la aplicación Flask
+# Create the Flask application
 app = Flask(__name__)
 
-# Habilitar CORS para solicitudes de localhost:8080
+# Enable CORS for requests from localhost:8080
 CORS(app, origins=["http://54.173.251.44:9090"])
 
-# URL de conexión a MongoDB
-uri_catalog = "mongodb+srv://MicroserviceDev:1997999@cluster0.hdqpd.mongodb.net/CatalogServiceDB?retryWrites=true&w=majority"
-uri_backup = "mongodb+srv://MicroserviceDev:1997999@cluster0.hdqpd.mongodb.net/BackupServiceDB?retryWrites=true&w=majority"
+# MongoDB connection URLs
+uri_catalog = "mongodb://admin:admin123@35.175.23.86:27017/CatalogServiceDB?authSource=admin"
+uri_backup = "mongodb://admin:admin123@35.175.23.86:27017/BackupServiceDB?authSource=admin"
 
-# Conectar a la base de datos
+# Connect to the database
 client_catalog = MongoClient(uri_catalog)
 client_backup = MongoClient(uri_backup)
 
-# Seleccionar la base de datos y las colecciones
+# Select the database and collections
 db_catalog = client_catalog['CatalogServiceDB']
 db_backup = client_backup['BackupServiceDB']
 models_collection = db_catalog['models']
-backup_collection = db_backup['models']  # Guardaremos los backups en esta colección
+backup_collection = db_backup['models']  # We will store the backups in this collection
 
-# Diccionario para almacenar la cantidad de solicitudes por IP
+# Dictionary to store the number of requests per IP
 requests_per_ip = {}
 
-# Límite de solicitudes por minuto (ejemplo: 100 solicitudes por minuto)
+# Request limit per minute (example: 100 requests per minute)
 MAX_REQUESTS_PER_MINUTE = 100
 
-# Función para implementar rate limiting (limitar las solicitudes)
+# Function to implement rate limiting
 @app.before_request
 def limit_requests():
     ip = request.remote_addr
-    current_time = int(time.time())  # Obtiene la hora actual en segundos
+    current_time = int(time.time())  # Get the current time in seconds
     if ip in requests_per_ip:
         requests_per_ip[ip] = [timestamp for timestamp in requests_per_ip[ip] if current_time - timestamp < 60]
     else:
         requests_per_ip[ip] = []
     
-    # Si el número de solicitudes supera el límite, bloquea la solicitud
+    # If the number of requests exceeds the limit, block the request
     if len(requests_per_ip[ip]) >= MAX_REQUESTS_PER_MINUTE:
         return jsonify({"message": "Too many requests. Please try again later."}), 429
 
-    # Registra la nueva solicitud
+    # Register the new request
     requests_per_ip[ip].append(current_time)
 
-# Función para eliminar el campo _id de los documentos (si es necesario)
+# Function to remove the _id field from documents (if necessary)
 def format_models(models):
     formatted_models = []
     for model in models:
-        # Eliminar el campo _id solo si es necesario, si no, lo mantenemos
+        # Remove the _id field only if necessary, otherwise keep it
         formatted_models.append(model)
     return formatted_models
 
 @app.route('/models', methods=['GET'])
 def get_models():
-    # Obtener todos los documentos de la colección de modelos
+    # Get all documents from the models collection
     models = models_collection.find()
     
-    # Formatear los modelos y devolver como respuesta
+    # Format the models and return as a response
     formatted_models = format_models(models)
     return jsonify(formatted_models)
 
 @app.route('/restore_models', methods=['POST'])
 def restore_models():
-    # Obtener la fecha de respaldo seleccionada para restaurar los modelos
+    # Get the selected backup date to restore the models
     restore_date = request.json.get('restore_date')
 
-    # Buscar el respaldo correspondiente en la colección de backups
+    # Find the corresponding backup in the backup collection
     backup_data = backup_collection.find_one({"backup_date": restore_date})
 
     if backup_data:
-        # Restaurar los modelos en la colección original
+        # Restore the models in the original collection
         models_to_restore = backup_data['models']
 
-        # Eliminar los modelos actuales y restaurar los nuevos (manteniendo los _id)
-        models_collection.delete_many({})  # Eliminar todos los modelos actuales
-        models_collection.insert_many(models_to_restore)  # Insertar los modelos restaurados con el mismo _id
+        # Delete the current models and restore the new ones (keeping the _id)
+        models_collection.delete_many({})  # Delete all current models
+        models_collection.insert_many(models_to_restore)  # Insert the restored models with the same _id
 
-        # Guardar la fecha de restauración
+        # Save the restoration date
         restoration_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
-        # Agregar la fecha de restauración a la base de datos de BackupServiceDB
+        # Add the restoration date to the BackupServiceDB database
         backup_collection.update_one(
             {"backup_date": restore_date},
             {"$set": {"restoration_date": restoration_date}}
         )
 
-        return jsonify({"message": f"Modelos restaurados exitosamente con fecha de restauración {restoration_date}"}), 201
+        return jsonify({"message": f"Models successfully restored with restoration date {restoration_date}"}), 201
     else:
-        return jsonify({"message": "No se encontró un respaldo con la fecha seleccionada"}), 404
+        return jsonify({"message": "No backup found with the selected date"}), 404
     
-# Ruta para obtener todos los respaldos por fecha de creación
+# Route to get all available backups by creation date
 @app.route('/backups', methods=['GET'])
 def get_backups():
-    # Obtener todos los backups ordenados por fecha
+    # Get all backups ordered by date
     backups = backup_collection.find().sort("backup_date", -1)
 
     formatted_backups = []
@@ -110,11 +110,11 @@ def get_backups():
 
     return jsonify(formatted_backups)
 
-# Ruta para la comprobación de salud
-@app.route('/health', methods=['GET'])
+# Health check route
+@app.route('rollback-models/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "OK"})
 
 if __name__ == '__main__':
-    # Ejecutar el servicio en el puerto 6008
+    # Run the service on port 6008
     app.run(debug=True, host='0.0.0.0', port=6008)
