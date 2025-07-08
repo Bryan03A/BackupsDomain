@@ -4,93 +4,93 @@ from flask import Flask, jsonify, request
 from pymongo import MongoClient
 from bson.json_util import dumps, loads
 from datetime import datetime
-from flask_cors import CORS  # Importa CORS
+from flask_cors import CORS  # Import CORS
 
-# Crear la aplicación Flask
+# Create the Flask application
 app = Flask(__name__)
 
-# Habilitar CORS para solicitudes de localhost:8080
-CORS(app, origins=["http://54.173.251.44:9090"])
+# Enable CORS for requests from localhost:8080
+CORS(app, origins=["http://54.166.118.216:9090"])
 
-# URL de conexión a MongoDB (Base de datos principal y Backup)
-uri = "mongodb+srv://MicroserviceDev:1997999@cluster0.hdqpd.mongodb.net/ChatServiceDB?retryWrites=true&w=majority"
-uri_backup = "mongodb+srv://MicroserviceDev:1997999@cluster0.hdqpd.mongodb.net/BackupServiceDB?retryWrites=true&w=majority"
+# MongoDB connection URL (Main database and Backup)
+uri = "mongodb://admin:admin123@35.175.23.86:27017/CatalogServiceDB?authSource=admin"
+uri_backup = "mongodb://admin:admin123@35.175.23.86:27017/BackupServiceDB?authSource=admin"
 
-# Conectar a la base de datos principal
+# Connect to the main database
 client = MongoClient(uri)
 db = client['ChatServiceDB']
 original_collection = db['chats']
 
-# Conectar a la base de datos de respaldo
+# Connect to the backup database
 client_backup = MongoClient(uri_backup)
 backup_db = client_backup['BackupServiceDB']
-backup_collection = backup_db['chat']  # Renombrado a 'chat'
+backup_collection = backup_db['chat']  # Renamed to 'chat'
 
-# Función para eliminar el campo _id de los documentos
+# Function to remove the _id field from documents
 def format_chats(chats):
     formatted_chats = []
     for chat in chats:
-        chat['_id'] = str(chat['_id'])  # Convertir ObjectId a string
+        chat['_id'] = str(chat['_id'])  # Convert ObjectId to string
         formatted_chats.append(chat)
     return formatted_chats
 
-# Diccionario para almacenar la cantidad de solicitudes por IP
+# Dictionary to store the number of requests per IP
 requests_per_ip = {}
 
-# Límite de solicitudes por minuto (ejemplo: 100 solicitudes por minuto)
+# Request limit per minute (example: 100 requests per minute)
 MAX_REQUESTS_PER_MINUTE = 100
 
-# Función para implementar rate limiting (limitar las solicitudes)
+# Function to implement rate limiting
 @app.before_request
 def limit_requests():
     ip = request.remote_addr
-    current_time = int(time.time())  # Obtiene la hora actual en segundos
+    current_time = int(time.time())  # Get the current time in seconds
     if ip in requests_per_ip:
         requests_per_ip[ip] = [timestamp for timestamp in requests_per_ip[ip] if current_time - timestamp < 60]
     else:
         requests_per_ip[ip] = []
     
-    # Si el número de solicitudes supera el límite, bloquea la solicitud
+    # If the number of requests exceeds the limit, block the request
     if len(requests_per_ip[ip]) >= MAX_REQUESTS_PER_MINUTE:
         return jsonify({"message": "Too many requests. Please try again later."}), 429
 
-    # Registra la nueva solicitud
+    # Register the new request
     requests_per_ip[ip].append(current_time)
 
 @app.route('/restore_chats', methods=['POST'])
 def restore_chats():
-    # Obtener la fecha del respaldo a restaurar desde los parámetros de la solicitud
+    # Get the restore date from the request parameters
     try:
-        # Obtener la fecha proporcionada por el usuario
-        restore_date = request.json.get('restore_date')  # formato: 'YYYY-MM-DD HH:MM:SS'
+        # Get the date provided by the user
+        restore_date = request.json.get('restore_date')  # format: 'YYYY-MM-DD HH:MM:SS'
         
-        # Buscar el backup con la fecha especificada
+        # Find the backup with the specified date
         last_backup = backup_collection.find({"backup_timestamp": restore_date}).limit(1)
         
         if last_backup:
             backup_data = last_backup[0]
             chats_data = backup_data['chats']
             
-            # Insertar los datos restaurados en la colección original 'chats' (sobrescribir)
+            # Insert the restored data into the original 'chats' collection (overwrite)
             restoration_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             backup_collection.update_one(
                 {"_id": backup_data["_id"]},
-                {"$set": {"restoration_timestamp": restoration_timestamp}}  # Guardamos la fecha de restauración
+                {"$set": {"restoration_timestamp": restoration_timestamp}}  # Save the restoration date
             )
             
-            # Sobrescribir los datos en la colección original
-            original_collection.drop()  # Eliminar los chats actuales (sobrescribirlos)
-            original_collection.insert_many(chats_data)  # Restaurar los chats desde el backup
+            # Overwrite the data in the original collection
+            original_collection.drop()  # Remove current chats (overwrite them)
+            original_collection.insert_many(chats_data)  # Restore chats from the backup
             
             return jsonify({
-                "message": f"Datos restaurados exitosamente en 'chats' con fecha de restauración {restoration_timestamp}"
+                "message": f"Data successfully restored in 'chats' with restoration date {restoration_timestamp}"
             }), 201
         else:
-            return jsonify({"message": "No se encontraron respaldos con la fecha especificada"}), 404
+            return jsonify({"message": "No backups found with the specified date"}), 404
     except Exception as e:
-        return jsonify({"message": f"Error al restaurar los datos: {str(e)}"}), 500
+        return jsonify({"message": f"Error restoring data: {str(e)}"}), 500
 
-# Ruta para obtener todos los backups disponibles
+# Route to get all available backups
 @app.route('/backups', methods=['GET'])
 def get_backups():
     backups = backup_collection.find({}, {"backup_timestamp": 1, "_id": 0}).sort("backup_timestamp", -1)
@@ -99,13 +99,13 @@ def get_backups():
     if backup_dates:
         return jsonify({"backups": backup_dates})
     else:
-        return jsonify({"message": "No hay backups disponibles"}), 404
+        return jsonify({"message": "No backups available"}), 404
     
-# Ruta para la comprobación de salud
-@app.route('/health', methods=['GET'])
+# Health check route
+@app.route('chat-rollback/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "OK"})
 
 if __name__ == '__main__':
-    # Ejecutar el servicio en el puerto 6006
+    # Run the service on port 6006
     app.run(debug=True, host='0.0.0.0', port=6006)
