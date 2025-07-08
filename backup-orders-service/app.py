@@ -11,7 +11,7 @@ from flask_cors import CORS  # Importa CORS
 app = Flask(__name__)
 
 # Habilitar CORS para solicitudes de localhost:8080
-CORS(app, origins=["http://54.173.251.44:9090"])
+CORS(app, origins=["http://54.166.118.216:9090"])
 
 # URL de conexión a PostgreSQL (Supabase)
 POSTGRES_URI = "postgresql://admin:admin123@23.23.135.253:5432/mydb"
