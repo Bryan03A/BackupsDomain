@@ -7,60 +7,60 @@ from datetime import datetime
 from flask_cors import CORS
 import time
 
-# Crear la aplicación Flask
+# Create the Flask application
 app = Flask(__name__)
 
-# Habilitar CORS para solicitudes de localhost:8080
-CORS(app, origins=["http://54.173.251.44:9090"])
+# Enable CORS for requests from localhost:8080
+CORS(app, origins=["http://54.166.118.216:9090"])
 
-# URL de conexión a MongoDB
+# MongoDB connection URL
 uri_catalog = "mongodb://admin:admin123@35.175.23.86:27017/CatalogServiceDB?authSource=admin"
 uri_backup = "mongodb://admin:admin123@35.175.23.86:27017/BackupServiceDB?authSource=admin"
 
-# Conectar a las bases de datos
+# Connect to the databases
 client_catalog = MongoClient(uri_catalog)
 client_backup = MongoClient(uri_backup)
 
-# Seleccionar las bases de datos y colecciones
+# Select databases and collections
 db_catalog = client_catalog['CatalogServiceDB']
 db_backup = client_backup['BackupServiceDB']
 fs_files_collection = db_catalog['fs.files']
 fs_chunks_collection = db_catalog['fs.chunks']
 images_collection = db_catalog['images']
-backup_collection = db_backup['images']  # Guardaremos los backups de imágenes en esta colección
+backup_collection = db_backup['images']  # We will store image backups in this collection
 
-# Diccionario para almacenar la cantidad de solicitudes por IP
+# Dictionary to store the number of requests per IP
 requests_per_ip = {}
 
-# Límite de solicitudes por minuto
+# Request limit per minute
 MAX_REQUESTS_PER_MINUTE = 100
 
-# Función para eliminar el campo _id de los documentos
+# Function to remove the _id field from documents
 def format_images(images):
     formatted_images = []
     for image in images:
-        image['_id'] = str(image['_id'])  # Convertir ObjectId a string
+        image['_id'] = str(image['_id'])  # Convert ObjectId to string
         formatted_images.append(image)
     return formatted_images
 
-# Función de rate limiting para evitar abuso de solicitudes
+# Rate limiting function to prevent request abuse
 @app.before_request
 def limit_requests():
     ip = request.remote_addr
-    current_time = int(time.time())  # Obtiene la hora actual en segundos
+    current_time = int(time.time())  # Get the current time in seconds
     if ip in requests_per_ip:
         requests_per_ip[ip] = [timestamp for timestamp in requests_per_ip[ip] if current_time - timestamp < 60]
     else:
         requests_per_ip[ip] = []
     
-    # Si el número de solicitudes supera el límite, bloquea la solicitud
+    # If the number of requests exceeds the limit, block the request
     if len(requests_per_ip[ip]) >= MAX_REQUESTS_PER_MINUTE:
         return jsonify({"message": "Too many requests. Please try again later."}), 429
 
-    # Registra la nueva solicitud
+    # Register the new request
     requests_per_ip[ip].append(current_time)
 
-# Función para respaldar las imágenes
+# Function to back up the images
 @app.route('/backup_images', methods=['POST'])
 def backup_images():
     images_info = fs_files_collection.find()
@@ -68,26 +68,26 @@ def backup_images():
     images_to_backup = []
     for image in images_info:
         image_copy = {
-            "_id": str(image["_id"]),  # Guardamos el ObjectId original como string
+            "_id": str(image["_id"]),  # Save the original ObjectId as a string
             "filename": image["filename"],
             "chunkSize": image["chunkSize"],
             "length": image["length"],
             "uploadDate": image["uploadDate"],
-            "chunks": []  # Lista para almacenar los chunks binarios de esta imagen
+            "chunks": []  # List to store the binary chunks of this image
         }
 
-        # Obtener los chunks de la imagen
+        # Get the chunks for the image
         chunks = fs_chunks_collection.find({"files_id": image["_id"]})
         for chunk in chunks:
             chunk_copy = {
-                "_id": str(chunk["_id"]),  # Guardar el ObjectId del chunk
-                "files_id": str(chunk["files_id"]),  # Guardar el ObjectId del archivo
+                "_id": str(chunk["_id"]),  # Save the chunk's ObjectId
+                "files_id": str(chunk["files_id"]),  # Save the file's ObjectId
                 "n": chunk["n"],
                 "data": chunk["data"]
             }
             image_copy["chunks"].append(chunk_copy)
 
-        # Respaldar la relación en la colección images
+        # Back up the relationship in the images collection
         image_relation = images_collection.find_one({"image_id": str(image["_id"])})
         if image_relation:
             image_copy["image_relation"] = {
@@ -109,14 +109,14 @@ def backup_images():
 
         backup_collection.insert_one(backup_data)
 
-        return jsonify({"message": f"Imágenes respaldadas exitosamente con fecha {backup_date} en 'BackupServiceDB'"}), 201
+        return jsonify({"message": f"Images successfully backed up with date {backup_date} in 'BackupServiceDB'"}), 201
     else:
-        return jsonify({"message": "No se encontraron imágenes para respaldar"}), 400
+        return jsonify({"message": "No images found to back up"}), 400
     
 @app.route('/last_backup', methods=['GET'])
 def last_backup():
-    # Obtener el último backup realizado, ordenado por fecha descendente
-    last_backup = backup_collection.find_one(sort=[("backup_date", -1)])  # Verifica que el campo es "backup_date"
+    # Get the last backup made, sorted by descending date
+    last_backup = backup_collection.find_one(sort=[("backup_date", -1)])  # Ensure the field is "backup_date"
     
     if last_backup:
         last_backup_time = datetime.strptime(last_backup['backup_date'], '%Y-%m-%d %H:%M:%S')
@@ -135,10 +135,10 @@ def last_backup():
             "time_elapsed": time_elapsed
         })
     else:
-        return jsonify({"message": "No hay backups disponibles"}), 404
+        return jsonify({"message": "No backups available"}), 404
     
-# Ruta para la comprobación de salud
-@app.route('/health', methods=['GET'])
+# Health check route
+@app.route('/backup-images/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "OK"})
 
