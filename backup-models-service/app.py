@@ -67,7 +67,7 @@ def get_models():
     return jsonify(formatted_models)
 
 # Route to back up models
-@app.route('/backup_models', methods=['POST'])
+@app.route('/backup_catalog', methods=['POST'])
 def backup_models():
     # Get all the documents from the models collection
     models = models_collection.find()
@@ -113,7 +113,7 @@ def get_last_backup_time():
         return jsonify({"message": "No backups found"}), 404
     
 # Health check route
-@app.route('/backup-models/health', methods=['GET'])
+@app.route('/backup-catalog/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "OK"})
 
