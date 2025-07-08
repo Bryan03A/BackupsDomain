@@ -87,7 +87,7 @@ def get_last_user_backup_time():
         return jsonify({"message": "No backups available"}), 404
     
 # Health check route
-@app.route('backup-user/health', methods=['GET'])
+@app.route('/backup-user/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "OK"})
 
