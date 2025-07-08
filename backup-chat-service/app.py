@@ -21,12 +21,12 @@ uri_backup = "mongodb://admin:admin123@35.175.23.86:27017/BackupServiceDB?authSo
 # Connect to the source (CatalogServiceDB)
 client = MongoClient(uri_main)
 src_db = client['CatalogServiceDB']
-original_collection = src_db['chat']        # o 'chats', según tu esquema
+original_collection = src_db['chats']
 
 # Connect to the backup (BackupServiceDB)
 client_backup = MongoClient(uri_backup)
 backup_db = client_backup['BackupServiceDB']
-backup_collection = backup_db['chat']   
+backup_collection = backup_db['chats']   
 
 # Dictionary to store the number of requests per IP
 requests_per_ip = {}
