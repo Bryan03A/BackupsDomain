@@ -57,7 +57,7 @@ def format_models(models):
         formatted_models.append(model)
     return formatted_models
 
-@app.route('/catalog', methods=['GET'])
+@app.route('/models', methods=['GET'])
 def get_models():
     # Get all documents from the models collection
     models = models_collection.find()
@@ -96,7 +96,7 @@ def restore_models():
         return jsonify({"message": "No backup found with the selected date"}), 404
     
 # Route to get all available backups by creation date
-@app.route('/backups', methods=['GET'])
+@app.route('/catalog', methods=['GET'])
 def get_backups():
     # Get all backups ordered by date
     backups = backup_collection.find().sort("backup_date", -1)
