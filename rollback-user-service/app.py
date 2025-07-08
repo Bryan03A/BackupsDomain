@@ -6,62 +6,62 @@ from pymongo import MongoClient
 from bson.json_util import dumps, loads
 from datetime import datetime
 from psycopg2.extras import RealDictCursor
-from flask_cors import CORS  # Importar CORS
+from flask_cors import CORS  # Import CORS
 
-# Crear la aplicación Flask
+# Create the Flask application
 app = Flask(__name__)
 
-# Habilitar CORS para solicitudes desde localhost:8080
-CORS(app, origins=["http://54.173.251.44:9090"])
+# Enable CORS for requests from localhost:8080
+CORS(app, origins=["http://54.166.118.216:9090"])
 
-# URL de conexión a PostgreSQL (Supabase)
-POSTGRES_URI = "postgresql://postgres.imfqyzgimtercyyqeqof:1997Guallaba@aws-0-us-west-1.pooler.supabase.com:6543/postgres"
+# PostgreSQL connection URL (Supabase)
+POSTGRES_URI = "postgresql://admin:admin123@23.23.135.253:5432/mydb"
 
-# URL de conexión a MongoDB (Backup)
-MONGO_URI = "mongodb+srv://MicroserviceDev:1997999@cluster0.hdqpd.mongodb.net/BackupServiceDB?retryWrites=true&w=majority"
+# MongoDB connection URL (Backup)
+MONGO_URI = "mongodb://admin:admin123@35.175.23.86:27017/BackupServiceDB?authSource=admin"
 
-# Conectar a PostgreSQL
+# Connect to PostgreSQL
 def connect_postgres():
     return psycopg2.connect(POSTGRES_URI, cursor_factory=RealDictCursor)
 
-# Conectar a MongoDB
+# Connect to MongoDB
 client_mongo = MongoClient(MONGO_URI)
 db_mongo = client_mongo['BackupServiceDB']
-backup_collection = db_mongo['user']  # Colección de respaldo
+backup_collection = db_mongo['user']  # Backup collection
 
-# Diccionario para almacenar la cantidad de solicitudes por IP
+# Dictionary to store the number of requests per IP
 requests_per_ip = {}
 
-# Límite de solicitudes por minuto (ejemplo: 100 solicitudes por minuto)
+# Request limit per minute (example: 100 requests per minute)
 MAX_REQUESTS_PER_MINUTE = 100
 
-# Función para implementar rate limiting (limitar las solicitudes)
+# Function to implement rate limiting
 @app.before_request
 def limit_requests():
     ip = request.remote_addr
-    current_time = int(time.time())  # Obtiene la hora actual en segundos
+    current_time = int(time.time())  # Get the current time in seconds
     if ip in requests_per_ip:
         requests_per_ip[ip] = [timestamp for timestamp in requests_per_ip[ip] if current_time - timestamp < 60]
     else:
         requests_per_ip[ip] = []
     
-    # Si el número de solicitudes supera el límite, bloquea la solicitud
+    # If the number of requests exceeds the limit, block the request
     if len(requests_per_ip[ip]) >= MAX_REQUESTS_PER_MINUTE:
         return jsonify({"message": "Too many requests. Please try again later."}), 429
 
-    # Registra la nueva solicitud
+    # Register the new request
     requests_per_ip[ip].append(current_time)
 
-# Función para restaurar los usuarios desde MongoDB a PostgreSQL
+# Function to restore users from MongoDB to PostgreSQL
 @app.route('/restore_users', methods=['POST'])
 def restore_users():
     restore_date = request.json.get('restore_date')
 
-    # Buscar el respaldo en MongoDB
+    # Search for the backup in MongoDB
     backup_data = backup_collection.find_one({"backup_date": restore_date})
 
     if not backup_data:
-        return jsonify({"message": "No se encontró un respaldo con la fecha seleccionada"}), 404
+        return jsonify({"message": "No backup found with the selected date"}), 404
 
     users_to_restore = backup_data['users']
 
@@ -69,8 +69,8 @@ def restore_users():
         conn = connect_postgres()
         cursor = conn.cursor()
 
-        # Restaurar los datos sobrescribiendo la tabla
-        cursor.execute("DELETE FROM \"user\";")  # Cambiar 'users' por 'user'
+        # Restore the data by overwriting the table
+        cursor.execute("DELETE FROM \"user\";")  # Change 'user' to the specific table name
 
         for user in users_to_restore:
             cursor.execute(
@@ -90,22 +90,22 @@ def restore_users():
         cursor.close()
         conn.close()
 
-        # Agregar la fecha de restauración al documento en MongoDB
+        # Add the restoration date to the MongoDB document
         restoration_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         backup_collection.update_one(
             {"backup_date": restore_date},
             {"$set": {"restoration_date": restoration_date}}
         )
 
-        return jsonify({"message": f"Usuarios restaurados exitosamente con fecha de restauración {restoration_date}"}), 201
+        return jsonify({"message": f"Users successfully restored with restoration date {restoration_date}"}), 201
 
     except Exception as e:
-        return jsonify({"message": f"Error al restaurar usuarios: {str(e)}"}), 500
+        return jsonify({"message": f"Error restoring users: {str(e)}"}), 500
     
-# Ruta para obtener todos los respaldos de usuarios por fecha de creación
+# Route to get all user backups by creation date
 @app.route('/user_backups', methods=['GET'])
 def get_user_backups():
-    # Obtener todos los respaldos ordenados por fecha
+    # Get all backups ordered by date
     backups = backup_collection.find().sort("backup_date", -1)
 
     formatted_backups = []
@@ -117,8 +117,8 @@ def get_user_backups():
 
     return jsonify(formatted_backups)
 
-# Ruta para la comprobación de salud
-@app.route('/health', methods=['GET'])
+# Health check route
+@app.route('rollback-user/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "OK"})
 
