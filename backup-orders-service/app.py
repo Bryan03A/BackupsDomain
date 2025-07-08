@@ -14,10 +14,10 @@ app = Flask(__name__)
 CORS(app, origins=["http://54.173.251.44:9090"])
 
 # URL de conexión a PostgreSQL (Supabase)
-POSTGRES_URI = "postgresql://postgres.imfqyzgimtercyyqeqof:1997Guallaba@aws-0-us-west-1.pooler.supabase.com:6543/postgres"
+POSTGRES_URI = "postgresql://admin:admin123@23.23.135.253:5432/mydb"
 
 # URL de conexión a MongoDB (Backup)
-MONGO_URI = "mongodb+srv://MicroserviceDev:1997999@cluster0.hdqpd.mongodb.net/BackupServiceDB?retryWrites=true&w=majority"
+MONGO_URI = "mongodb://admin:admin123@35.175.23.86:27017/BackupServiceDB?authSource=admin"
 
 # Conectar a PostgreSQL
 def connect_postgres():
