@@ -1,0 +1,24 @@
+# Ignore virtual environment files
+.env
+
+# Ignore Python bytecode files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore virtual environment folder
+venv/
+
+# Ignore editor configuration files (optional)
+.idea/
+.vscode/
+auth.txt
+test_app.py
+
+# Ignore installed dependencies in Python
+*.egg-info/
+
+.DS_Store
+
+*.git
