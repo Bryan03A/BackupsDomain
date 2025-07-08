@@ -108,7 +108,7 @@ def get_backups():
             "backup_id": str(backup["_id"])
         })
 
-    return jsonify(formatted_backups)
+    return jsonify({"backups": [b["backup_date"] for b in formatted_backups]})
 
 # Health check route
 @app.route('/rollback-models/health', methods=['GET'])
