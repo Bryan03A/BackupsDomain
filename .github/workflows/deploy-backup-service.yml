@@ -1,0 +1,66 @@
+name: Build, Push, and Deploy All Microservices Sequentially
+
+on:
+  push:
+    branches:
+      - main
+      - test
+
+jobs:
+  clone-and-deploy:
+    name: Clone, Build and Deploy Microservices
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: SSH into EC2 and Deploy
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Repository setup
+            REPO_CODE="https://github.com/Bryan03A/BackupsDomain.git"
+
+            mkdir -p ~/deploy-code
+
+            cd ~/deploy-code
+            git clone -b test "$REPO_CODE" BackupsDomain
+
+            docker login -u bfury0329 -p "${{ secrets.DOCKER_HUB_PASSWORD }}"
+            docker network inspect app-network >/dev/null 2>&1 || docker network create app-network
+
+            cd ~/deploy-code/BackupsDomain
+            for dir in */ ; do
+              service=$(basename "$dir")
+              if [ -f "$dir/Dockerfile" ]; then
+                echo "⚙️ Processing $service ..."
+                docker build -t bfury0329/${service}:latest "./$dir"
+                docker push bfury0329/${service}:latest
+                docker rm -f "${service}" 2>/dev/null || true
+
+                port=$(grep -i '^EXPOSE' "$dir/Dockerfile" | head -n1 | awk '{print $2}')
+                [ -z "$port" ] && port=7000
+                docker run -d --name "${service}" --network app-network -p ${port}:${port} bfury0329/${service}:latest
+              fi
+            done
+
+  cleanup:
+    name: Cleanup Temporary Folders and Dangling Docker Images
+    runs-on: ubuntu-latest
+    needs: clone-and-deploy
+
+    steps:
+      - name: SSH and Clean Temporary Directories and Docker Images
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "🧹 Cleaning up temporary deployment folders..."
+            rm -rf ~/deploy-code
+            echo "✅ Folders cleaned."
+            echo "🧽 Removing dangling Docker images..."
+            docker rmi $(docker images -f "dangling=true" -q) 2>/dev/null || echo "No dangling images to remove."
+            echo "✅ Docker cleanup complete."
