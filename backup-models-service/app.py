@@ -13,8 +13,8 @@ app = Flask(__name__)
 CORS(app, origins=["http://54.173.251.44:9090"])
 
 # URL de conexión a MongoDB
-uri_catalog = "mongodb+srv://MicroserviceDev:1997999@cluster0.hdqpd.mongodb.net/CatalogServiceDB?retryWrites=true&w=majority"
-uri_backup = "mongodb+srv://MicroserviceDev:1997999@cluster0.hdqpd.mongodb.net/BackupServiceDB?retryWrites=true&w=majority"
+uri_catalog = "mongodb://admin:admin123@35.175.23.86:27017/CatalogServiceDB?authSource=admin"
+uri_backup = "mongodb://admin:admin123@35.175.23.86:27017/BackupServiceDB?authSource=admin"
 
 # Conectar a la base de datos
 client_catalog = MongoClient(uri_catalog)
