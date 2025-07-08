@@ -9,7 +9,7 @@ from flask_cors import CORS  # Import CORS
 # Create the Flask application
 app = Flask(__name__)
 
-# Enable CORS for requests from localhost:8080
+# Enable CORS for requests from localhost:9090
 CORS(app, origins=["http://54.173.251.44:9090"])
 
 # MongoDB connection URLs
