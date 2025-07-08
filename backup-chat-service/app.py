@@ -13,19 +13,20 @@ app = Flask(__name__)
 # Enable CORS for requests from localhost:8080
 CORS(app, origins=["http://54.166.118.216:9090"])
 
-# MongoDB connection URLs (Main database and Backup)
-uri = "mongodb://admin:admin123@35.175.23.86:27017/ChatServiceDB"
+
+# MongoDB connection URLs (source DB and backup DB)
+uri_main   = "mongodb://admin:admin123@35.175.23.86:27017/CatalogServiceDB"
 uri_backup = "mongodb://admin:admin123@35.175.23.86:27017/BackupServiceDB"
 
-# Connect to the main database
-client = MongoClient(uri)
-db = client['ChatServiceDB']
-original_collection = db['chats']
+# Connect to the source (CatalogServiceDB)
+client = MongoClient(uri_main)
+src_db = client['CatalogServiceDB']
+original_collection = src_db['chat']        # o 'chats', según tu esquema
 
-# Connect to the backup database
+# Connect to the backup (BackupServiceDB)
 client_backup = MongoClient(uri_backup)
 backup_db = client_backup['BackupServiceDB']
-backup_collection = backup_db['chat']  # Renamed to 'chat'
+backup_collection = backup_db['chat']   
 
 # Dictionary to store the number of requests per IP
 requests_per_ip = {}
