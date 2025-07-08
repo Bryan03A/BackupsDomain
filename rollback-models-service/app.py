@@ -57,7 +57,7 @@ def format_models(models):
         formatted_models.append(model)
     return formatted_models
 
-@app.route('/models', methods=['GET'])
+@app.route('/catalog', methods=['GET'])
 def get_models():
     # Get all documents from the models collection
     models = models_collection.find()
@@ -66,7 +66,7 @@ def get_models():
     formatted_models = format_models(models)
     return jsonify(formatted_models)
 
-@app.route('/restore_models', methods=['POST'])
+@app.route('/restore_catalog', methods=['POST'])
 def restore_models():
     # Get the selected backup date to restore the models
     restore_date = request.json.get('restore_date')
