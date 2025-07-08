@@ -118,7 +118,7 @@ def get_user_backups():
     return jsonify(formatted_backups)
 
 # Health check route
-@app.route('rollback-user/health', methods=['GET'])
+@app.route('/rollback-user/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "OK"})
 
